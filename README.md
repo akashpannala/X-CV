@@ -1,10 +1,10 @@
-# 🦺 PPE Compliance Detection System
+#  PPE Compliance Detection System
 
 An AI-powered real-time PPE (Personal Protective Equipment) Compliance Detection System that monitors workers through live CCTV/video feeds using YOLOv8 object detection. The system identifies PPE compliance and violations, detects falls, stores detection events in a Supabase database, and provides a web dashboard for monitoring and reporting.
 
 ---
 
-## 🚀 Features
+##  Features
 
 - Real-time PPE detection from live CCTV/RTSP streams
 - Detects: Person, Hardhat, Safety Vest, Gloves, Goggles, Mask, Ladder, Safety Cone
@@ -19,7 +19,7 @@ An AI-powered real-time PPE (Personal Protective Equipment) Compliance Detection
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -32,19 +32,19 @@ An AI-powered real-time PPE (Personal Protective Equipment) Compliance Detection
 
 ---
 
-## 🏗️ Workflow
+##  Workflow
 
 Live CCTV Feed → Frame Capture → YOLOv8 Detection → PPE/Fall Analysis → Violation Check → Snapshot & Logging (Supabase) → Alert Generation → Dashboard Display & Reporting
 
 ---
 
-## 🎯 Problem & Solution
+##  Problem & Solution
 
 Manual PPE checks are slow, inconsistent, and can't cover every worker or camera at once. This system automates detection using YOLOv8 on live feeds, instantly alerting personnel to violations and falls while logging every event for reporting and audit.
 
 ---
 
-## ⚙️ Key Requirements
+##  Key Requirements
 
 - Alert latency under 5 seconds; support for multiple concurrent streams
 - Target uptime of 99%+
@@ -54,7 +54,7 @@ Manual PPE checks are slow, inconsistent, and can't cover every worker or camera
 
 ---
 
-## 🚧 Assumptions & Out of Scope
+##  Assumptions & Out of Scope
 
 **Assumptions:** CCTV cameras pre-installed, stable network, YOLOv8 trained on provided PPE dataset, Supabase project configured.
 
@@ -62,7 +62,7 @@ Manual PPE checks are slow, inconsistent, and can't cover every worker or camera
 
 ---
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 - Multi-site centralised dashboard
 - Predictive risk analytics
@@ -72,7 +72,7 @@ Manual PPE checks are slow, inconsistent, and can't cover every worker or camera
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 bootcamp-ace-26-team-6/
