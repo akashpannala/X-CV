@@ -3,16 +3,17 @@ set -e
 cd "$(dirname "$0")"
 
 if [ ! -d "venv" ]; then
-    python -m venv venv
+    python3 -m venv venv
 fi
 
-source venv/Scripts/activate
-
-if [ -f "backend/requirements.txt" ]; then
-    pip install -r backend/requirements.txt
-elif [ -f "requirements.txt" ]; then
-    pip install -r requirements.txt
+# Windows Git-Bash uses Scripts/, POSIX uses bin/
+if [ -f "venv/Scripts/activate" ]; then
+    source venv/Scripts/activate
+else
+    source venv/bin/activate
 fi
+
+pip install -r requirements.txt
 
 set -a; source backend/.env; set +a
 

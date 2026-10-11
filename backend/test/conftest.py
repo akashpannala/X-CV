@@ -25,23 +25,3 @@ def auth_token(user_id):
 @pytest.fixture
 def auth_headers(auth_token):
     return {"Authorization": f"Bearer {auth_token}"}
-
-
-@pytest.fixture
-def camera_id():
-    return str(uuid.uuid4())
-
-
-@pytest.fixture
-def event_id():
-    return str(uuid.uuid4())
-
-
-@pytest.fixture
-def site_id():
-    return str(uuid.uuid4())
-
-
-@pytest.fixture
-def alert_id():
-    return str(uuid.uuid4())

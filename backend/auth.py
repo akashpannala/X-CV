@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -69,15 +69,6 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> UserInfo:
     return decode_token(credentials.credentials)
-
-
-def get_current_user_from_token(token: str = Query(None)) -> UserInfo:
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing token",
-        )
-    return decode_token(token)
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -1,7 +1,6 @@
 let historyCurrentPage = 1;
 const historyLimit = 20;
-let historySortBy = "detected_at";
-let historySortOrder = "desc";
+const historySort = { by: "detected_at", order: "desc" };
 
 const historyDateInput = document.getElementById("history-date");
 const loadHistoryBtn = document.getElementById("load-history-btn");
@@ -16,28 +15,20 @@ const histViolations = document.getElementById("hist-violations");
 const histFalls = document.getElementById("hist-falls");
 const histCompliant = document.getElementById("hist-compliant");
 
-function formatFullDateTime(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
-}
-
 async function loadHistory() {
     const date = historyDateInput.value;
     if (!date) return;
 
-    historyTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;"><div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><span class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></span><span>Loading...</span></div></td></tr>`;
+    historyTbody.innerHTML = spinnerRowHTML(6);
 
     const { data: events, totalCount } = await fetchViolations({
         type: "all", dateStart: date, dateEnd: date,
-        sortBy: historySortBy, sortOrder: historySortOrder,
+        sortBy: historySort.by, sortOrder: historySort.order,
         page: historyCurrentPage, limit: historyLimit
     });
 
     if (!events || events.length === 0) {
-        historyTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 4rem;"><div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;"><i data-lucide="calendar-x" style="width: 40px; height: 40px; color: var(--text-muted);"></i><span style="font-weight: 500; font-size: 1rem;">No records for this date</span></div></td></tr>`;
+        historyTbody.innerHTML = emptyRowHTML(6, "calendar-x", "No records for this date");
         paginationInfo.textContent = "Showing 0 to 0 of 0 entries";
         paginationControls.innerHTML = "";
         lucide.createIcons();
@@ -52,20 +43,11 @@ async function loadHistory() {
         const tr = document.createElement("tr");
 
         const timeCell = document.createElement("td");
-        timeCell.textContent = formatFullDateTime(event.created_at);
+        timeCell.textContent = fmtDateTime(event.created_at);
         timeCell.style.whiteSpace = "nowrap";
 
         const typeCell = document.createElement("td");
-        let badgeClass = "status-violation";
-        let iconName = "alert-octagon";
-        if (event.type === "Compliant") {
-            badgeClass = "status-compliant";
-            iconName = "shield-check";
-        } else if (event.type === "Fall-Detected") {
-            iconName = "user-minus";
-        }
-        const eventTypeDisplay = event.is_compliant ? "Compliant" : event.type;
-        typeCell.innerHTML = `<span class="status-badge ${badgeClass}"><i data-lucide="${iconName}" style="width: 14px; height: 14px;"></i> ${eventTypeDisplay}</span>`;
+        typeCell.innerHTML = typeBadgeHTML(event.is_compliant ? "Compliant" : event.type);
 
         const camCell = document.createElement("td");
         camCell.textContent = event.camera_name || "Browser Webcam";
@@ -77,13 +59,7 @@ async function loadHistory() {
         confCell.style.fontWeight = "600";
 
         const statusCell = document.createElement("td");
-        if (event.type === "Compliant") {
-            statusCell.innerHTML = `<span class="status-badge status-compliant" style="opacity: 0.7;"><i data-lucide="check" style="width: 12px; height: 12px;"></i> OK</span>`;
-        } else if (event.status === "Acknowledged") {
-            statusCell.innerHTML = `<span class="status-badge status-compliant"><i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Acknowledged</span>`;
-        } else {
-            statusCell.innerHTML = `<span class="status-badge status-violation"><i data-lucide="x-circle" style="width: 12px; height: 12px;"></i> Active</span>`;
-        }
+        statusCell.innerHTML = statusBadgeHTML(event.type === "Compliant" ? "Compliant" : event.status);
 
         const actionCell = document.createElement("td");
         if (event.type !== "Compliant" && event.status !== "Acknowledged") {
@@ -115,7 +91,7 @@ async function loadHistory() {
     const startEntry = (historyCurrentPage - 1) * historyLimit + 1;
     const endEntry = Math.min(historyCurrentPage * historyLimit, totalCount);
     paginationInfo.textContent = `Showing ${startEntry} to ${endEntry} of ${totalCount} entries`;
-    renderHistoryPagination(totalCount);
+    renderPager(paginationControls, historyCurrentPage, totalCount, historyLimit, p => { historyCurrentPage = p; loadHistory(); });
 
     const counts = events.reduce((acc, e) => {
         if (e.is_compliant) acc.compliant++;
@@ -136,61 +112,7 @@ function updateSummary(counts) {
     histCompliant.textContent = counts.compliant;
 }
 
-function renderHistoryPagination(totalCount) {
-    paginationControls.innerHTML = "";
-    const totalPages = Math.ceil(totalCount / historyLimit);
-    if (totalPages <= 1) return;
-
-    const prevBtn = document.createElement("button");
-    prevBtn.className = "pagination-btn";
-    prevBtn.innerHTML = `<i data-lucide="chevron-left" style="width: 14px; height: 14px; display: block;"></i>`;
-    prevBtn.disabled = historyCurrentPage === 1;
-    prevBtn.onclick = () => { if (historyCurrentPage > 1) { historyCurrentPage--; loadHistory(); } };
-    paginationControls.appendChild(prevBtn);
-
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1 || i === totalPages || (i >= historyCurrentPage - 1 && i <= historyCurrentPage + 1)) {
-            const pageBtn = document.createElement("button");
-            pageBtn.className = `pagination-btn ${historyCurrentPage === i ? 'active' : ''}`;
-            pageBtn.textContent = i;
-            pageBtn.onclick = () => { if (historyCurrentPage !== i) { historyCurrentPage = i; loadHistory(); } };
-            paginationControls.appendChild(pageBtn);
-        } else if (i === historyCurrentPage - 2 || i === historyCurrentPage + 2) {
-            const dots = document.createElement("span");
-            dots.textContent = "...";
-            dots.style.padding = "0.25rem 0.5rem";
-            dots.style.color = "var(--text-muted)";
-            paginationControls.appendChild(dots);
-        }
-    }
-
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "pagination-btn";
-    nextBtn.innerHTML = `<i data-lucide="chevron-right" style="width: 14px; height: 14px; display: block;"></i>`;
-    nextBtn.disabled = historyCurrentPage === totalPages;
-    nextBtn.onclick = () => { if (historyCurrentPage < totalPages) { historyCurrentPage++; loadHistory(); } };
-    paginationControls.appendChild(nextBtn);
-    lucide.createIcons();
-}
-
-tableHeaders.forEach(th => {
-    th.addEventListener("click", () => {
-        const column = th.getAttribute("data-column");
-        tableHeaders.forEach(h => { if (h !== th) h.classList.remove("sort-asc", "sort-desc"); });
-        if (historySortBy === column) {
-            historySortOrder = historySortOrder === "asc" ? "desc" : "asc";
-            th.classList.toggle("sort-asc", historySortOrder === "asc");
-            th.classList.toggle("sort-desc", historySortOrder === "desc");
-        } else {
-            historySortBy = column;
-            historySortOrder = "desc";
-            th.classList.add("sort-desc");
-            th.classList.remove("sort-asc");
-        }
-        historyCurrentPage = 1;
-        loadHistory();
-    });
-});
+bindSort(tableHeaders, historySort, () => { historyCurrentPage = 1; loadHistory(); });
 
 exportCsvBtn.addEventListener("click", async () => {
     const date = historyDateInput.value;
@@ -199,23 +121,11 @@ exportCsvBtn.addEventListener("click", async () => {
     const originalText = exportCsvBtn.innerHTML;
     exportCsvBtn.innerHTML = "Exporting...";
     try {
-        const { data: allEvents } = await fetchViolations({ type: "all", dateStart: date, dateEnd: date, sortBy: historySortBy, sortOrder: historySortOrder, page: 1, limit: 1000 });
+        const { data: allEvents } = await fetchViolations({ type: "all", dateStart: date, dateEnd: date, sortBy: historySort.by, sortOrder: historySort.order, page: 1, limit: 1000 });
         if (!allEvents || allEvents.length === 0) { alert("No records found."); return; }
-        const csvHeaders = ["Event ID", "Timestamp", "Event Type", "Camera", "Confidence", "Status"];
-        const csvRows = [csvHeaders.join(",")];
-        allEvents.forEach(row => {
-            csvRows.push([row.id, new Date(row.created_at).toISOString(), `"${row.type}"`, row.camera_name || "Browser Webcam", `${Math.round(row.confidence * 100)}%`, row.status].join(","));
-        });
-        const csvContent = csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `ppe_history_${date}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadCsv(`ppe_history_${date}.csv`,
+            ["Event ID", "Timestamp", "Event Type", "Camera", "Confidence", "Status"],
+            allEvents.map(row => [row.id, new Date(row.created_at).toISOString(), `"${row.type}"`, row.camera_name || "Browser Webcam", `${Math.round(row.confidence * 100)}%`, row.status]));
     } catch (e) { console.error("Export failed:", e); alert("Export failed: " + e.message); }
     finally { exportCsvBtn.disabled = false; exportCsvBtn.innerHTML = originalText; }
 });

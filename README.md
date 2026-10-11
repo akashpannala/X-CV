@@ -128,8 +128,7 @@ bootcamp-ace-26-team-6/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
-├── run.sh        # Linux/macOS
-├── runx.sh       # Windows
+├── run.sh        # Linux/macOS/Windows Git-Bash
 ├── LICENSE
 ├── SECURITY_NOTICE.md
 └── README.md
@@ -159,14 +158,8 @@ JWT_EXPIRE_MINUTES=46
 
 ### 3. Run the application
 
-**Linux / macOS:**
 ```bash
 ./run.sh
-```
-
-**Windows:**
-```bash
-./runx.sh
 ```
 
 Or manually:

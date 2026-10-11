@@ -28,35 +28,6 @@ class TestAuthMe:
         assert resp.status_code == 401
 
 
-class TestSites:
-    def test_list_sites(self, client, auth_headers, user_id, httpx_mock):
-        httpx_mock.add_response(
-            url=f"{BASE}/sites?user_id=eq.{user_id}&order=name.asc",
-            json=[{"id": "s1", "name": "Warehouse", "location": "Floor 1"}],
-        )
-        resp = client.get("/sites", headers=auth_headers)
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
-
-    def test_create_site(self, client, auth_headers, user_id, httpx_mock):
-        httpx_mock.add_response(
-            method="POST",
-            url=f"{BASE}/sites",
-            json=[{"id": "s1", "name": "Warehouse", "user_id": user_id}],
-        )
-        resp = client.post("/sites", headers=auth_headers, json={"name": "Warehouse"})
-        assert resp.status_code == 200
-
-    def test_delete_site(self, client, auth_headers, httpx_mock):
-        httpx_mock.add_response(
-            method="DELETE",
-            url=f"{BASE}/sites?id=eq.s1",
-            status_code=204,
-        )
-        resp = client.delete("/sites/s1", headers=auth_headers)
-        assert resp.status_code == 200
-
-
 class TestCameras:
     def test_list_cameras(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(

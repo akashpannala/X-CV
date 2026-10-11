@@ -22,33 +22,6 @@ class TestSettingsDefaults:
         )
         assert s.jwt_expire_minutes == 480
 
-    def test_default_api_host(self):
-        s = Settings(
-            supabase_url="http://test",
-            supabase_anon_key="k1",
-            supabase_service_key="k2",
-            jwt_secret="secret",
-        )
-        assert s.api_host == "127.0.0.1"
-
-    def test_default_api_port(self):
-        s = Settings(
-            supabase_url="http://test",
-            supabase_anon_key="k1",
-            supabase_service_key="k2",
-            jwt_secret="secret",
-        )
-        assert s.api_port == 8000
-
-    def test_debug_defaults_to_true(self):
-        s = Settings(
-            supabase_url="http://test",
-            supabase_anon_key="k1",
-            supabase_service_key="k2",
-            jwt_secret="secret",
-        )
-        assert s.debug is True
-
 
 class TestSettingsOverride:
     def test_accepts_override_values(self):
@@ -59,9 +32,6 @@ class TestSettingsOverride:
             jwt_secret="mysecret",
             jwt_algorithm="RS256",
             jwt_expire_minutes=60,
-            api_host="0.0.0.0",
-            api_port=9000,
-            debug=False,
         )
         assert s.supabase_url == "http://custom"
         assert s.supabase_anon_key == "ak"
@@ -69,9 +39,6 @@ class TestSettingsOverride:
         assert s.jwt_secret == "mysecret"
         assert s.jwt_algorithm == "RS256"
         assert s.jwt_expire_minutes == 60
-        assert s.api_host == "0.0.0.0"
-        assert s.api_port == 9000
-        assert s.debug is False
 
     def test_required_fields_raise_without(self):
         try:

@@ -8,20 +8,6 @@
     <link rel="stylesheet" href="css/style.css?v=16">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        try {
-            const session = localStorage.getItem("ppe_session");
-            if (session) {
-                const parsed = JSON.parse(session);
-                const payload = JSON.parse(atob(parsed.access_token.split('.')[1]));
-                if (Date.now() >= payload.exp * 1000) {
-                    localStorage.removeItem("ppe_session");
-                }
-            }
-        } catch (e) {
-            localStorage.removeItem("ppe_session");
-        }
-    </script>
 </head>
 <body>
     <div class="app-container">

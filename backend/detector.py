@@ -4,7 +4,10 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "best.pt")
+from backend.config import settings
+
+LOCAL_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "best.pt")
+LOCAL_FALLBACK_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "last.pt")
 
 CLASS_NAMES = {
     0: "Fall-Detected",
@@ -28,14 +31,39 @@ VIOLATION_IDS = {6, 7, 8, 9, 10}
 _model = None
 
 
+def _resolve_weight_path(filename: str) -> str:
+    """Local bake first (dev), else pull from Hugging Face Hub (cloud)."""
+    local = LOCAL_MODEL_PATH if filename == "best.pt" else LOCAL_FALLBACK_PATH
+    if os.path.exists(local):
+        return local
+    from huggingface_hub import hf_hub_download
+
+    return hf_hub_download(
+        repo_id=settings.model_repo_id,
+        filename=filename,
+        revision=settings.model_revision,
+        token=settings.hf_token,
+    )
+
+
+def prefetch_weights() -> dict:
+    """Boot prefetch for EC2 user-data: warms HF cache before uvicorn."""
+    out = {}
+    for name in ("best.pt", "last.pt"):
+        try:
+            out[name] = _resolve_weight_path(name)
+        except Exception as e:
+            out[name] = f"FAILED: {e}"
+    return out
+
+
 def _get_model():
     global _model
     if _model is None:
-        if os.path.exists(MODEL_PATH):
-            _model = YOLO(MODEL_PATH)
-        else:
-            fallback_path = os.path.join(os.path.dirname(__file__), "..", "models", "last.pt")
-            _model = YOLO(fallback_path)
+        try:
+            _model = YOLO(_resolve_weight_path("best.pt"))
+        except Exception:
+            _model = YOLO(_resolve_weight_path("last.pt"))
     return _model
 
 

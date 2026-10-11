@@ -179,6 +179,26 @@ window.startCamera = async function() {
     }
 }
 
+async function ingestResult(data) {
+    lastDetections = data.detections || [];
+    if (data.annotated_image && ctx && canvasEl) {
+        const img = new Image();
+        img.onload = function() {
+            if (!ctx || !canvasEl) return;
+            canvasEl.width = img.width;
+            canvasEl.height = img.height;
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = "data:image/jpeg;base64," + data.annotated_image;
+    }
+    const now = Date.now();
+    const lastEvent = eventCooldowns[data.event_type] || 0;
+    if (now - lastEvent > 30000) {
+        eventCooldowns[data.event_type] = now;
+        await storeDetectionEvent(data); // falls back to currentCameraId/Name
+    }
+}
+
 function startDetectionLoop() {
     if (detectionInterval) clearInterval(detectionInterval);
     detectionInterval = setInterval(async () => {
@@ -198,22 +218,7 @@ function startDetectionLoop() {
                 if (token) headers["Authorization"] = `Bearer ${token}`;
                 const response = await fetch(`${API_BASE_URL}/detect`, { method: "POST", headers, body: formData });
                 if (!response.ok) return;
-                const data = await response.json();
-                lastDetections = data.detections || [];
-                const img = new Image();
-                img.onload = function() {
-                    if (!ctx || !canvasEl) return;
-                    canvasEl.width = img.width;
-                    canvasEl.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                };
-                img.src = "data:image/jpeg;base64," + data.annotated_image;
-                const now = Date.now();
-                const lastEvent = eventCooldowns[data.event_type] || 0;
-                if (now - lastEvent > 30000) {
-                    eventCooldowns[data.event_type] = now;
-                    await storeDetectionEvent(data);
-                }
+                await ingestResult(await response.json());
             } catch (e) {}
         }, "image/jpeg", 0.8);
     }, 1500);
@@ -230,25 +235,7 @@ function startIPCameraLoop() {
             if (token) headers["Authorization"] = `Bearer ${token}`;
             const response = await fetch(`${API_BASE_URL}/detect?camera_id=${currentCameraId}`, { method: "POST", headers, body: null });
             if (!response.ok) return;
-            const data = await response.json();
-            lastDetections = data.detections || [];
-            if (data.annotated_image && ctx && canvasEl) {
-                const img = new Image();
-                img.onload = function() {
-                    canvasEl.width = img.width;
-                    canvasEl.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                };
-                img.src = "data:image/jpeg;base64," + data.annotated_image;
-            }
-            const now = Date.now();
-            const lastEvent = eventCooldowns[data.event_type] || 0;
-            if (now - lastEvent > 30000) {
-                eventCooldowns[data.event_type] = now;
-                data.camera_id = currentCameraId;
-                data.camera_name = currentCameraName;
-                await storeDetectionEvent(data);
-            }
+            await ingestResult(await response.json());
         } catch (e) {}
     }, 1500);
 }
