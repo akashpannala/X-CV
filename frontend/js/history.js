@@ -136,4 +136,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     historyDateInput.value = today;
     loadHistoryBtn.onclick = () => { historyCurrentPage = 1; loadHistory(); };
     loadHistory();
+    onAck(() => loadHistory());
 });

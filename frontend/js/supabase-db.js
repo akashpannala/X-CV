@@ -199,11 +199,31 @@ async function fetchAlerts({ limit = 50, acknowledged = null } = {}) {
 async function acknowledgeAlert(alertId) {
     try {
         const response = await apiFetch(`/alerts/${alertId}/ack`, { method: "PATCH" });
+        notifyAck();
         return response;
     } catch (e) {
         console.error("Acknowledge alert error:", e);
         throw e;
     }
+}
+
+// Cross-tab ack sync: every ack path routes through acknowledgeAlert,
+// so one broadcast here keeps all open tabs (logs/history/dashboard) fresh.
+function notifyAck() {
+    try {
+        if ("BroadcastChannel" in window) new BroadcastChannel("ppe").postMessage({ t: "ack", at: Date.now() });
+    } catch (e) {}
+    try { localStorage.setItem("ppe_ack", String(Date.now())); } catch (e) {}
+}
+
+function onAck(cb) {
+    try {
+        if ("BroadcastChannel" in window) {
+            const bc = new BroadcastChannel("ppe");
+            bc.onmessage = (m) => { if (m.data && m.data.t === "ack") cb(); };
+        }
+    } catch (e) {}
+    window.addEventListener("storage", (e) => { if (e.key === "ppe_ack") cb(); });
 }
 
 // ----------------- ADVANCED REPORT STATISTICS METHODS -----------------

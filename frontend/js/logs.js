@@ -125,7 +125,7 @@ bindSort(tableHeaders, sort, () => { currentPage = 1; loadEvents(); });
 });
 
 clearFiltersBtn.addEventListener("click", () => {
-    filterType.value = "all";
+    filterType.value = "Violations Only";
     if (filterDateStart) filterDateStart.value = "";
     if (filterDateEnd) filterDateEnd.value = "";
     currentPage = 1;
@@ -154,3 +154,4 @@ exportCsvBtn.addEventListener("click", async () => {
 });
 
 document.addEventListener("DOMContentLoaded", loadEvents);
+onAck(() => loadEvents());

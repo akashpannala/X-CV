@@ -1415,3 +1415,5 @@ body {
     to { opacity: 1; transform: scale(1); }
 }
 
+
+#hud-camera-select option { background: #1f2a3f; color: #e5e7eb; }
