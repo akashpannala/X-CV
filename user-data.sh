@@ -2,7 +2,7 @@
 # EC2 user-data (Amazon Linux 2023) — non-Docker path.
 # Secrets come from SSM Parameter Store (/ppe/*), never baked in.
 set -eux
-
+export AWS_DEFAULT_REGION=ap-south-2
 dnf update -y
 dnf install -y python3 python3-pip mesa-libGL glib2 git curl unzip
 python3 -m venv /opt/ppe/venv
