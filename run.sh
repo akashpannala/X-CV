@@ -13,6 +13,7 @@ else
     source venv/bin/activate
 fi
 
+pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
 pip install -r requirements.txt
 
 set -a; source backend/.env; set +a

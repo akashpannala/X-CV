@@ -43,10 +43,14 @@ class TestCameras:
             url=f"{BASE}/cameras",
             json=[{"id": "c1", "name": "Laptop"}],
         )
-        resp = client.post("/cameras", headers=auth_headers, json={"name": "Laptop"})
+        resp = client.post("/cameras", headers=auth_headers, json={"name": "Laptop", "url": "http://cam"})
         assert resp.status_code == 200
 
-    def test_delete_camera(self, client, auth_headers, httpx_mock):
+    def test_delete_camera(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}",
+            json=[{"id": "c1", "name": "Laptop Camera"}],
+        )
         httpx_mock.add_response(
             method="DELETE",
             url=f"{BASE}/cameras?id=eq.c1",
@@ -83,6 +87,10 @@ class TestEvents:
         httpx_mock.add_response(
             url=f"{BASE}/detection_events?user_id=eq.{user_id}&order=detected_at.desc&limit=100",
             json=[{"id": "ev1", "event_type": "violation"}],
+        )
+        httpx_mock.add_response(
+            url=f"{BASE}/detections?event_id=in.(ev1)",
+            json=[],
         )
         resp = client.get("/events", headers=auth_headers)
         assert resp.status_code == 200

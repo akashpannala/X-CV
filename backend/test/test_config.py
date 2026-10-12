@@ -20,7 +20,7 @@ class TestSettingsDefaults:
             supabase_service_key="k2",
             jwt_secret="secret",
         )
-        assert s.jwt_expire_minutes == 480
+        assert s.jwt_expire_minutes == 60
 
 
 class TestSettingsOverride:

@@ -1,4 +1,6 @@
 import threading
+import time
+
 import cv2
 import numpy as np
 
@@ -41,6 +43,8 @@ class CameraStream:
                 with self._latest_frame_lock:
                     self._latest_frame = frame
             else:
+                # ponytail: dead streams reconnect with backoff — tight loop burns a core on cloud.
+                time.sleep(5)
                 self._cap.release()
                 self._cap = cv2.VideoCapture(self.url)
 

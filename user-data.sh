@@ -4,7 +4,7 @@
 set -eux
 
 dnf update -y
-dnf install -y python3.13 python3.13-pip mesa-libGL glib2
+dnf install -y python3.13 python3.13-pip mesa-libGL glib2 git
 python3.13 -m venv /opt/ppe/venv || python3 -m venv /opt/ppe/venv
 source /opt/ppe/venv/bin/activate
 
@@ -15,7 +15,10 @@ if ! swapon --show | grep -q swapfile; then
   echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
 fi
 
-cd /opt/ppe/app  # repo cloned here before this runs (see README deploy notes)
+if [ ! -d /opt/ppe/app/.git ]; then
+  git clone https://github.com/akashpannala/X-CV /opt/ppe/app
+fi
+cd /opt/ppe/app
 
 pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
 pip install -r requirements.txt

@@ -10,6 +10,14 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+# ponytail: one pooled client — per-call httpx.get/post opens a fresh connection
+# (TLS handshake + socket churn per Supabase round-trip on cloud).
+_client = httpx.Client(
+    headers=HEADERS,
+    timeout=15,
+    limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+)
+
 
 def _handle_response(response: httpx.Response):
     if response.status_code >= 400:
@@ -20,41 +28,28 @@ def _handle_response(response: httpx.Response):
 
 
 def select(table: str, params: dict | None = None):
-    response = httpx.get(
-        f"{BASE_URL}/{table}",
-        headers=HEADERS,
-        params=params or {},
-        timeout=15,
-    )
-    return _handle_response(response)
+    return _handle_response(_client.get(f"{BASE_URL}/{table}", params=params or {}))
 
 
 def insert(table: str, data: dict):
-    response = httpx.post(
+    return _handle_response(_client.post(
         f"{BASE_URL}/{table}",
-        headers={**HEADERS, "Prefer": "return=representation"},
+        headers={"Prefer": "return=representation"},
         json=data,
-        timeout=15,
-    )
-    return _handle_response(response)
+    ))
 
 
 def update(table: str, data: dict, field: str, value):
-    response = httpx.patch(
+    return _handle_response(_client.patch(
         f"{BASE_URL}/{table}",
-        headers={**HEADERS, "Prefer": "return=representation"},
+        headers={"Prefer": "return=representation"},
         params={field: f"eq.{value}"},
         json=data,
-        timeout=15,
-    )
-    return _handle_response(response)
+    ))
 
 
 def delete(table: str, field: str, value):
-    response = httpx.delete(
+    return _handle_response(_client.delete(
         f"{BASE_URL}/{table}",
-        headers=HEADERS,
         params={field: f"eq.{value}"},
-        timeout=15,
-    )
-    return _handle_response(response)
+    ))

@@ -2,6 +2,7 @@
 
 import base64
 from collections import Counter
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -17,7 +18,14 @@ from backend.db import insert, select, update, delete as db_delete
 from backend.detector import annotate, detect
 from backend.camera_manager import get_frame, start_camera, stop_camera, is_active, stop_all
 
-app = FastAPI(title="PPE Compliance API", version="1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    stop_all()
+
+
+app = FastAPI(title="PPE Compliance API", version="1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -357,8 +365,3 @@ def update_settings(body: SettingsUpdate, user=Depends(get_current_user)):
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
-
-
-@app.on_event("shutdown")
-def shutdown():
-    stop_all()
