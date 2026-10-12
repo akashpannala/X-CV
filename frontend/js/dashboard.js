@@ -16,6 +16,7 @@ let currentCameraName = "";
 let cameras = [];
 let relayImg = null;
 let relayBlockedShown = false;
+let serverActive = false;
 const MIXED_FIX = "Site settings → Insecure content → Allow";
 
 function resetStreamUI() {
@@ -125,13 +126,11 @@ async function loadCameraDropdown() {
     try {
         cameras = await fetchCameras();
         sel.innerHTML = `<option value="">Browser Webcam</option>
-            <option value="__screen">Screen / window share</option>
-            <option value="__relay">IP-cam via browser</option>`;
+            <option value="__screen">Screen / window share</option>`;
         cameras.forEach(c => {
             const opt = document.createElement("option");
             opt.value = c.id;
             opt.textContent = c.name;
-            opt.style = "background:#1f2a3f;color:#e5e7eb;";
             sel.appendChild(opt);
         });
     } catch (e) {
@@ -145,18 +144,8 @@ document.addEventListener("change", (e) => {
             stopCamera();
         }
         currentCameraId = e.target.value;
-        const urlInput = document.getElementById("ipcam-url");
-        const hint = document.getElementById("cam-hint");
-        if (currentCameraId === "__relay") {
-            currentCameraName = "IP Webcam (relay)";
-            if (urlInput) urlInput.style.display = "";
-            if (hint) hint.textContent = "Same-WiFi browser pulls the stream; http:// cams need " + MIXED_FIX + ".";
-        } else {
-            if (urlInput) urlInput.style.display = "none";
-            if (hint) hint.textContent = "Click Start Camera to begin PPE detection";
-            const selCam = cameras.find(c => c.id === currentCameraId);
-            currentCameraName = selCam ? selCam.name : "";
-        }
+        const selCam = cameras.find(c => c.id === currentCameraId);
+        currentCameraName = selCam ? selCam.name : "";
     }
 });
 
@@ -176,22 +165,20 @@ window.startCamera = async function() {
     const hint = document.getElementById("cam-hint");
     if (hint) hint.style.display = "none";
 
-    if (currentCameraId === "__relay") {
-        const url = document.getElementById("ipcam-url").value.trim();
-        if (!url) {
-            alert("Enter the IP-webcam stream URL (e.g. http://192.168.1.100:8080/video).");
-            resetStreamUI();
-            return;
+    if (currentCameraId) {
+        const row = cameras.find(c => c.id === currentCameraId);
+        serverActive = false;
+        try {
+            await apiFetch(`/cameras/${currentCameraId}/start`, { method: "POST" });
+            serverActive = true;
+        } catch (e) {
+            console.error("Start camera stream failed:", e);
         }
-        relayImg = new Image();
-        relayBlockedShown = false;
-        relayImg.onerror = () => {
-            alert("Could not load the stream. Check the URL, same-WiFi, and (for http:// cams on an https:// page) " + MIXED_FIX + ".");
-            relayImg = null;
-            resetStreamUI();
-        };
-        relayImg.onload = () => startFrameLoop();
-        relayImg.src = url;
+        if (serverActive) {
+            startIPCameraLoop();
+        } else {
+            engageRelayFallback(row);
+        }
     } else if (currentCameraId === "__screen") {
         currentCameraName = "Screen share";
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -209,13 +196,6 @@ window.startCamera = async function() {
             videoStream = null;
             resetStreamUI();
         }
-    } else if (currentCameraId) {
-        try {
-            await apiFetch(`/cameras/${currentCameraId}/start`, { method: "POST" });
-        } catch (e) {
-            console.error("Start camera stream failed:", e);
-        }
-        startIPCameraLoop();
     } else {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             alert("Camera requires a secure context (HTTPS or localhost).\nOn Chromium browsers, use http://localhost:8000 instead of the IP address.");
@@ -271,8 +251,28 @@ async function postFrameBlob(blob) {
     } catch (e) {}
 }
 
+function engageRelayFallback(row) {
+    const url = (row && row.url) || "";
+    if (!/^https?:\/\//i.test(url)) {
+        alert("Camera unreachable from the server, and relay needs an http(s) stream URL (RTSP cannot play in a browser).");
+        resetStreamUI();
+        return;
+    }
+    currentCameraName = (row.name || "Camera") + " (relay)";
+    const hint = document.getElementById("cam-hint");
+    if (hint) { hint.textContent = "Server unreachable — relaying via browser. " + MIXED_FIX + "."; hint.style.display = ""; }
+    relayImg = new Image();
+    relayBlockedShown = false;
+    relayImg.onerror = () => {
+        alert("Could not load the stream. Check the URL, same-WiFi, and (for http:// cams on an https:// page) " + MIXED_FIX + ".");
+        window.stopCamera(); // also stops a half-started server stream
+    };
+    relayImg.onload = () => startFrameLoop();
+    relayImg.src = url;
+}
+
 function frameSource() {
-    if (currentCameraId === "__relay") return relayImg?.naturalWidth ? relayImg : null;
+    if (relayImg?.naturalWidth) return relayImg;
     return videoEl?.videoWidth ? videoEl : null;
 }
 
@@ -291,7 +291,7 @@ function startFrameLoop() {
             blob = await new Promise((res, rej) => tempCanvas.toBlob(b => b ? res(b) : rej(new Error("empty")), "image/jpeg", 0.8));
         } catch (e) {
             // ponytail: tainted canvas (cam sends no CORS headers) — surface once, keep polling.
-            if (currentCameraId === "__relay" && !relayBlockedShown) {
+            if (relayImg && !relayBlockedShown) {
                 relayBlockedShown = true;
                 alert("Browser blocked reading the stream pixels (cam sends no CORS headers). Use Screen / window share mode instead, or run locally with a server-side IP cam.");
             }
@@ -303,6 +303,7 @@ function startFrameLoop() {
 
 function startIPCameraLoop() {
     if (detectionInterval) clearInterval(detectionInterval);
+    let fails = 0;
     detectionInterval = setInterval(async () => {
         if (!isStreaming) return;
         try {
@@ -311,9 +312,16 @@ function startIPCameraLoop() {
             const headers = {};
             if (token) headers["Authorization"] = `Bearer ${token}`;
             const response = await fetch(`${API_BASE_URL}/detect?camera_id=${currentCameraId}`, { method: "POST", headers, body: null });
-            if (!response.ok) return;
+            if (!response.ok) throw new Error("detect " + response.status);
+            fails = 0;
             await ingestResult(await response.json());
-        } catch (e) {}
+        } catch (e) {
+            if (++fails >= 3) {
+                clearInterval(detectionInterval);
+                detectionInterval = null;
+                engageRelayFallback(cameras.find(c => c.id === currentCameraId));
+            }
+        }
     }, 1500);
 }
 
@@ -345,7 +353,7 @@ async function storeDetectionEvent(detectResult) {
     }
 }
 
-// Virtual sources (__relay/__screen) have no cameras row — the FK column takes uuid|null only.
+// Virtual sources (__screen) have no cameras row — the FK column takes uuid|null only.
 function resolveCameraRef(id) {
     return (!id || String(id).startsWith("__")) ? null : id;
 }
@@ -353,8 +361,9 @@ function resolveCameraRef(id) {
 window.stopCamera = function() {
     isStreaming = false;
     if (detectionInterval) { clearInterval(detectionInterval); detectionInterval = null; }
-    if (cameras.some(c => c.id === currentCameraId)) {
+    if (serverActive) {
         apiFetch(`/cameras/${currentCameraId}/stop`, { method: "POST" }).catch(() => {});
+        serverActive = false;
     }
     if (relayImg) { relayImg.src = ""; relayImg = null; }
     if (videoEl && videoEl.srcObject) {

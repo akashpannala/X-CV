@@ -4,9 +4,15 @@
 set -eux
 
 dnf update -y
-dnf install -y python3.13 python3.13-pip mesa-libGL glib2 git
-python3.13 -m venv /opt/ppe/venv || python3 -m venv /opt/ppe/venv
+dnf install -y python3 python3-pip mesa-libGL glib2 git curl unzip
+python3 -m venv /opt/ppe/venv
 source /opt/ppe/venv/bin/activate
+
+# AWS CLI v2 (not guaranteed on the AMI) — needed for SSM secrets below
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
+  unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
 
 # 2GB swap for t3.micro (torch+YOLO OOM without it)
 if ! swapon --show | grep -q swapfile; then

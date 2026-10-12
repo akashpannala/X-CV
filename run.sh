@@ -15,6 +15,7 @@ fi
 
 pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 set -a; source backend/.env; set +a
 

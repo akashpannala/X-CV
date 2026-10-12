@@ -1,0 +1,4 @@
+# Dev / testing only (prod image installs requirements.txt alone)
+-r requirements.txt
+pytest>=8.0.0
+pytest-httpx>=0.30.0

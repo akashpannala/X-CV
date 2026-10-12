@@ -136,24 +136,38 @@ bootcamp-ace-26-team-6/
 
 ---
 
+## Documentation
+
+| You want to… | Read |
+|---|---|
+| Run your first detection (15-min lesson) | `docs/tutorial-first-detection.md` |
+| Deploy on AWS in one command | `docs/how-to-deploy-aws.md` |
+| Connect LAN / RTSP / public / file cameras | `docs/how-to-cameras.md` |
+| Look up endpoints, env vars, class IDs | `docs/reference-api.md` |
+| Understand why it is built this way | `docs/explanation-architecture.md` |
+
+---
+
 ## Getting Started
 
 ### 1. Clone the repository
 ```bash
-git clone <repository-url>
-cd bootcamp-ace-26-team-6
+git clone https://github.com/akashpannala/X-CV && cd X-CV
 ```
 
 ### 2. Configure environment variables
-Create a `.env` file in the `backend/` folder based on `.env.example`:
+Create `backend/.env` from `backend/.env.exp` (weights come from
+Hugging Face — no model files needed):
 
 ```env
 SUPABASE_URL=https://x.supabase.co
-SUPABASE_SERVICE_KEY=sb_secret
 SUPABASE_ANON_KEY=sb_publishable
+SUPABASE_SERVICE_KEY=sb_secret
 JWT_SECRET=change-me-to-a-random-secret-key-in-production
-JWT_ALGORITHM=AK475
-JWT_EXPIRE_MINUTES=46
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=60
+MODEL_REPO_ID=akashpannala/ppe-compliance-yolov8
+MODEL_REVISION=1a978d5
 ```
 
 ### 3. Run the application
@@ -173,6 +187,13 @@ Dashboard: `http://localhost:8000`
 
 API docs (Swagger UI): `http://localhost:8000/docs`
 
+### 5. Deploy (optional)
+
+```bash
+export SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_SERVICE_KEY=... JWT_SECRET=...
+./infra/deploy.sh up   # EC2 + CloudFront HTTPS, ~$0 at low use; see How-to: deploy
+```
+
 ---
 
 ## Environment Variables
@@ -185,7 +206,8 @@ API docs (Swagger UI): `http://localhost:8000/docs`
 | JWT_SECRET | Secret for signing JWT tokens (32+ chars) | Yes |
 | JWT_ALGORITHM | JWT algorithm | No |
 | JWT_EXPIRE_MINUTES | Access token expiry, in minutes | No |
-| MODEL_PATH | Path to YOLO model (default: models/best.pt) | No |
+| MODEL_REPO_ID | Hugging Face weights repo | No |
+| MODEL_REVISION | Pinned weights commit | No |
 
 ---
 

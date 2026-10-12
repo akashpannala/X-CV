@@ -1,0 +1,109 @@
+# PPE Sentry — stateless network layer (1-click deploy).
+# The EC2 instance itself is launched by deploy.sh with file://user-data.sh
+# (keeps instance config in one place instead of duplicating it here).
+# Usage: aws cloudformation deploy --template-file infra/ppe.yaml --stack-name ppe \
+#          --region <region> --parameter-overrides VpcId=... SubnetId=...
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "PPE Sentry free-tier network: SG, Elastic IP, CloudFront HTTPS"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the security group (default VPC is fine)
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet for the instance launched by deploy.sh (same AZ preferred)
+
+Resources:
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PPE Sentry — CloudFront origin + SSM only
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        # CloudFront origin-facing traffic only (no direct public API access)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: com.amazonaws.global.cloudfront.origin-facing
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourcePrefixListId: com.amazonaws.global.cloudfront.origin-facing
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0 # Supabase, Hugging Face, RTSP cams, SSM
+      Tags:
+        - { Key: Name, Value: ppe-sg }
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Session Manager, no SSH keys
+      Policies:
+        - PolicyName: ppe-ssm-params
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParametersByPath
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ppe/*"
+      Tags:
+        - { Key: Name, Value: ppe-role }
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - { Key: Name, Value: ppe-eip }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: PPE Sentry (free *.cloudfront.net HTTPS — required for webcam APIs)
+        PriceClass: PriceClass_100 # cheapest edge set
+        DefaultCacheBehavior:
+          TargetOriginId: ec2-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+          OriginRequestPolicyId: 019ad4c2-31c7-4e9c-a27b-7a36127c98c0 # Managed-AllViewerExceptHostHeader
+        Origins:
+          - Id: ec2-origin
+            DomainName: !GetAtt ElasticIP.PublicDnsName
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
+      Tags:
+        - { Key: Name, Value: ppe-cdn }
+
+Outputs:
+  DashboardURL:
+    Description: Open this after deploy.sh associates the instance
+    Value: !Sub "https://${Distribution.DomainName}/"
+  SecurityGroupId:
+    Value: !Ref InstanceSecurityGroup
+  InstanceProfileName:
+    Value: !Ref InstanceProfile
+  ElasticIPAllocationId:
+    Value: !GetAtt ElasticIP.AllocationId
+  ElasticIPPublicDNS:
+    Value: !GetAtt ElasticIP.PublicDnsName
+  SubnetId:
+    Value: !Ref SubnetId
