@@ -5,8 +5,8 @@ set -eux
 export AWS_DEFAULT_REGION=ap-south-2
 
 dnf update -y
-dnf install -y python3 python3-pip mesa-libGL glib2 git unzip
-python3 -m venv /opt/ppe/venv
+dnf install -y python3.11 python3.11-pip mesa-libGL glib2 git unzip
+python3.11 -m venv /opt/ppe/venv
 source /opt/ppe/venv/bin/activate
 
 # AWS CLI v2 (not guaranteed on the AMI) — needed for SSM secrets below
