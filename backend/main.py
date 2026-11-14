@@ -2,7 +2,6 @@
 
 import base64
 from collections import Counter
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -18,14 +17,7 @@ from backend.db import insert, select, update, delete as db_delete
 from backend.detector import annotate, detect
 from backend.camera_manager import get_frame, start_camera, stop_camera, is_active, stop_all
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    stop_all()
-
-
-app = FastAPI(title="PPE Compliance API", version="1.0", lifespan=lifespan)
+app = FastAPI(title="PPE Compliance API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -179,19 +171,6 @@ def create_event(body: EventCreate, user=Depends(get_current_user)):
         raise HTTPException(400, str(e))
 
 
-def _summarize_event(event_type: str, dets: list) -> tuple:
-    confidence = 0.0
-    for d in dets:
-        confidence = max(confidence, float(d.get("confidence", 0)))
-        if d.get("is_violation", False):
-            return d["class_name"], round(confidence, 3)
-    for d in dets:
-        if d.get("class_id") == 0:
-            return "Fall-Detected", round(confidence, 3)
-    label = dets[0]["class_name"] if dets else event_type
-    return label, round(confidence, 3)
-
-
 @app.get("/events")
 def list_events(
     limit: int = 100,
@@ -210,11 +189,31 @@ def list_events(
         params["detected_at"] = f"lt.{end_dt.date().isoformat()}"
     events = select("detection_events", params) or []
     if events:
-        ids_param = ",".join(e["id"] for e in events)
+        event_ids = [e["id"] for e in events]
+        ids_param = ",".join(event_ids)
         all_dets = select("detections", {"event_id": f"in.({ids_param})"}) or []
         for e in events:
-            e["label"], e["confidence"] = _summarize_event(
-                e["event_type"], [d for d in all_dets if d["event_id"] == e["id"]])
+            eid = e["id"]
+            event_dets = [d for d in all_dets if d["event_id"] == eid]
+            label = e["event_type"]
+            confidence = 0.0
+            if event_dets:
+                for d in event_dets:
+                    conf = float(d.get("confidence", 0))
+                    if conf > confidence:
+                        confidence = conf
+                    if d.get("is_violation", False):
+                        label = d["class_name"]
+                        break
+                else:
+                    for d in event_dets:
+                        if d.get("class_id") == 0:
+                            label = "Fall-Detected"
+                            break
+                    else:
+                        label = event_dets[0]["class_name"]
+            e["label"] = label
+            e["confidence"] = round(confidence, 3)
     return events
 
 
@@ -226,6 +225,27 @@ def get_event(event_id: str, user=Depends(get_current_user)):
     event = r[0]
     event["detections"] = select("detections", {"event_id": f"eq.{event_id}"}) or []
     return event
+
+
+@app.get("/detections")
+def list_detections(limit: int = 50, user=Depends(get_current_user)):
+    dets = select("detections", {"order": "id.desc", "limit": str(limit)}) or []
+    event_ids = list({d["event_id"] for d in dets})
+    if not event_ids:
+        return []
+
+    events = {}
+    for eid in event_ids:
+        ev = select("detection_events", {"id": f"eq.{eid}", "user_id": f"eq.{user.id}"})
+        if ev:
+            events[eid] = ev[0]
+
+    result = []
+    for d in dets:
+        ev = events.get(d["event_id"])
+        if ev:
+            result.append({**d, "snapshot": ev.get("snapshot"), "event_type": ev["event_type"]})
+    return result[:limit]
 
 
 @app.get("/stats")
@@ -365,3 +385,8 @@ def update_settings(body: SettingsUpdate, user=Depends(get_current_user)):
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+
+
+@app.on_event("shutdown")
+def shutdown():
+    stop_all()

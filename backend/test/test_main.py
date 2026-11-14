@@ -28,6 +28,35 @@ class TestAuthMe:
         assert resp.status_code == 401
 
 
+class TestSites:
+    def test_list_sites(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/sites?user_id=eq.{user_id}&order=name.asc",
+            json=[{"id": "s1", "name": "Warehouse", "location": "Floor 1"}],
+        )
+        resp = client.get("/sites", headers=auth_headers)
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
+
+    def test_create_site(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            method="POST",
+            url=f"{BASE}/sites",
+            json=[{"id": "s1", "name": "Warehouse", "user_id": user_id}],
+        )
+        resp = client.post("/sites", headers=auth_headers, json={"name": "Warehouse"})
+        assert resp.status_code == 200
+
+    def test_delete_site(self, client, auth_headers, httpx_mock):
+        httpx_mock.add_response(
+            method="DELETE",
+            url=f"{BASE}/sites?id=eq.s1",
+            status_code=204,
+        )
+        resp = client.delete("/sites/s1", headers=auth_headers)
+        assert resp.status_code == 200
+
+
 class TestCameras:
     def test_list_cameras(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(
@@ -43,14 +72,10 @@ class TestCameras:
             url=f"{BASE}/cameras",
             json=[{"id": "c1", "name": "Laptop"}],
         )
-        resp = client.post("/cameras", headers=auth_headers, json={"name": "Laptop", "url": "http://cam"})
+        resp = client.post("/cameras", headers=auth_headers, json={"name": "Laptop"})
         assert resp.status_code == 200
 
-    def test_delete_camera(self, client, auth_headers, user_id, httpx_mock):
-        httpx_mock.add_response(
-            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}",
-            json=[{"id": "c1", "name": "Laptop Camera"}],
-        )
+    def test_delete_camera(self, client, auth_headers, httpx_mock):
         httpx_mock.add_response(
             method="DELETE",
             url=f"{BASE}/cameras?id=eq.c1",
@@ -87,10 +112,6 @@ class TestEvents:
         httpx_mock.add_response(
             url=f"{BASE}/detection_events?user_id=eq.{user_id}&order=detected_at.desc&limit=100",
             json=[{"id": "ev1", "event_type": "violation"}],
-        )
-        httpx_mock.add_response(
-            url=f"{BASE}/detections?event_id=in.(ev1)",
-            json=[],
         )
         resp = client.get("/events", headers=auth_headers)
         assert resp.status_code == 200

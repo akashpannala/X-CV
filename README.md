@@ -1,10 +1,10 @@
-# 🦺 PPE Compliance Detection System
+#  PPE Compliance Detection System
 
 An AI-powered real-time PPE (Personal Protective Equipment) Compliance Detection System that monitors workers through live CCTV/video feeds using YOLOv8 object detection. The system identifies PPE compliance and violations, detects falls, stores detection events in a Supabase database, and provides a web dashboard for monitoring and reporting.
 
 ---
 
-## 🚀 Features
+##  Features
 
 - Real-time PPE detection from live CCTV/RTSP streams
 - Detects: Person, Hardhat, Safety Vest, Gloves, Goggles, Mask, Ladder, Safety Cone
@@ -19,7 +19,7 @@ An AI-powered real-time PPE (Personal Protective Equipment) Compliance Detection
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -32,19 +32,19 @@ An AI-powered real-time PPE (Personal Protective Equipment) Compliance Detection
 
 ---
 
-## 🏗️ Workflow
+##  Workflow
 
 Live CCTV Feed → Frame Capture → YOLOv8 Detection → PPE/Fall Analysis → Violation Check → Snapshot & Logging (Supabase) → Alert Generation → Dashboard Display & Reporting
 
 ---
 
-## 🎯 Problem & Solution
+##  Problem & Solution
 
 Manual PPE checks are slow, inconsistent, and can't cover every worker or camera at once. This system automates detection using YOLOv8 on live feeds, instantly alerting personnel to violations and falls while logging every event for reporting and audit.
 
 ---
 
-## ⚙️ Key Requirements
+##  Key Requirements
 
 - Alert latency under 5 seconds; support for multiple concurrent streams
 - Target uptime of 99%+
@@ -54,7 +54,7 @@ Manual PPE checks are slow, inconsistent, and can't cover every worker or camera
 
 ---
 
-## 🚧 Assumptions & Out of Scope
+##  Assumptions & Out of Scope
 
 **Assumptions:** CCTV cameras pre-installed, stable network, YOLOv8 trained on provided PPE dataset, Supabase project configured.
 
@@ -62,7 +62,7 @@ Manual PPE checks are slow, inconsistent, and can't cover every worker or camera
 
 ---
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 - Multi-site centralised dashboard
 - Predictive risk analytics
@@ -72,7 +72,7 @@ Manual PPE checks are slow, inconsistent, and can't cover every worker or camera
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 bootcamp-ace-26-team-6/
@@ -128,7 +128,8 @@ bootcamp-ace-26-team-6/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
-├── run.sh        # Linux/macOS/Windows Git-Bash
+├── run.sh        # Linux/macOS
+├── runx.sh       # Windows
 ├── LICENSE
 ├── SECURITY_NOTICE.md
 └── README.md
@@ -136,44 +137,36 @@ bootcamp-ace-26-team-6/
 
 ---
 
-## Documentation
-
-| You want to… | Read |
-|---|---|
-| Run your first detection (15-min lesson) | `docs/tutorial-first-detection.md` |
-| Deploy on AWS in one command | `docs/how-to-deploy-aws.md` |
-| Connect LAN / RTSP / public / file cameras | `docs/how-to-cameras.md` |
-| Look up endpoints, env vars, class IDs | `docs/reference-api.md` |
-| Understand why it is built this way | `docs/explanation-architecture.md` |
-
----
-
 ## Getting Started
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/akashpannala/X-CV && cd X-CV
+git clone <repository-url>
+cd bootcamp-ace-26-team-6
 ```
 
 ### 2. Configure environment variables
-Create `backend/.env` from `backend/.env.exp` (weights come from
-Hugging Face — no model files needed):
+Create a `.env` file in the `backend/` folder based on `.env.example`:
 
 ```env
 SUPABASE_URL=https://x.supabase.co
-SUPABASE_ANON_KEY=sb_publishable
 SUPABASE_SERVICE_KEY=sb_secret
+SUPABASE_ANON_KEY=sb_publishable
 JWT_SECRET=change-me-to-a-random-secret-key-in-production
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=60
-MODEL_REPO_ID=akashpannala/ppe-compliance-yolov8
-MODEL_REVISION=1a978d5
+JWT_ALGORITHM=AK475
+JWT_EXPIRE_MINUTES=46
 ```
 
 ### 3. Run the application
 
+**Linux / macOS:**
 ```bash
 ./run.sh
+```
+
+**Windows:**
+```bash
+./runx.sh
 ```
 
 Or manually:
@@ -187,13 +180,6 @@ Dashboard: `http://localhost:8000`
 
 API docs (Swagger UI): `http://localhost:8000/docs`
 
-### 5. Deploy (optional)
-
-```bash
-export SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_SERVICE_KEY=... JWT_SECRET=...
-./infra/deploy.sh up   # EC2 + CloudFront HTTPS, ~$0 at low use; see How-to: deploy
-```
-
 ---
 
 ## Environment Variables
@@ -206,8 +192,7 @@ export SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_SERVICE_KEY=... JWT_SECRE
 | JWT_SECRET | Secret for signing JWT tokens (32+ chars) | Yes |
 | JWT_ALGORITHM | JWT algorithm | No |
 | JWT_EXPIRE_MINUTES | Access token expiry, in minutes | No |
-| MODEL_REPO_ID | Hugging Face weights repo | No |
-| MODEL_REVISION | Pinned weights commit | No |
+| MODEL_PATH | Path to YOLO model (default: models/best.pt) | No |
 
 ---
 

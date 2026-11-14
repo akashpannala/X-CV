@@ -12,8 +12,8 @@ from backend.db import (
 # -----------------------------------------
 # SELECT
 # -----------------------------------------
-@patch("backend.db._client")
-def test_select_success(mock_client):
+@patch("backend.db.httpx.get")
+def test_select_success(mock_get):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.text = '[{"id":1,"name":"Camera 1"}]'
@@ -24,7 +24,7 @@ def test_select_success(mock_client):
         }
     ]
 
-    mock_client.get.return_value = mock_response
+    mock_get.return_value = mock_response
 
     result = select("cameras")
 
@@ -35,8 +35,8 @@ def test_select_success(mock_client):
 # -----------------------------------------
 # INSERT
 # -----------------------------------------
-@patch("backend.db._client")
-def test_insert_success(mock_client):
+@patch("backend.db.httpx.post")
+def test_insert_success(mock_post):
     mock_response = MagicMock()
     mock_response.status_code = 201
     mock_response.text = '[{"id":1}]'
@@ -46,7 +46,7 @@ def test_insert_success(mock_client):
         }
     ]
 
-    mock_client.post.return_value = mock_response
+    mock_post.return_value = mock_response
 
     result = insert(
         "cameras",
@@ -61,8 +61,8 @@ def test_insert_success(mock_client):
 # -----------------------------------------
 # UPDATE
 # -----------------------------------------
-@patch("backend.db._client")
-def test_update_success(mock_client):
+@patch("backend.db.httpx.patch")
+def test_update_success(mock_patch):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.text = '[{"name":"Updated Camera"}]'
@@ -72,7 +72,7 @@ def test_update_success(mock_client):
         }
     ]
 
-    mock_client.patch.return_value = mock_response
+    mock_patch.return_value = mock_response
 
     result = update(
         "cameras",
@@ -89,14 +89,14 @@ def test_update_success(mock_client):
 # -----------------------------------------
 # DELETE
 # -----------------------------------------
-@patch("backend.db._client")
-def test_delete_success(mock_client):
+@patch("backend.db.httpx.delete")
+def test_delete_success(mock_delete):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.text = "[]"
     mock_response.json.return_value = []
 
-    mock_client.delete.return_value = mock_response
+    mock_delete.return_value = mock_response
 
     result = delete(
         "cameras",
@@ -110,49 +110,49 @@ def test_delete_success(mock_client):
 # -----------------------------------------
 # ERROR HANDLING
 # -----------------------------------------
-@patch("backend.db._client")
-def test_select_failure(mock_client):
+@patch("backend.db.httpx.get")
+def test_select_failure(mock_get):
     mock_response = MagicMock()
     mock_response.status_code = 500
     mock_response.text = "Internal Server Error"
 
-    mock_client.get.return_value = mock_response
+    mock_get.return_value = mock_response
 
     with pytest.raises(Exception):
         select("cameras")
 
 
-@patch("backend.db._client")
-def test_insert_failure(mock_client):
+@patch("backend.db.httpx.post")
+def test_insert_failure(mock_post):
     mock_response = MagicMock()
     mock_response.status_code = 400
     mock_response.text = "Bad Request"
 
-    mock_client.post.return_value = mock_response
+    mock_post.return_value = mock_response
 
     with pytest.raises(Exception):
         insert("cameras", {})
 
 
-@patch("backend.db._client")
-def test_update_failure(mock_client):
+@patch("backend.db.httpx.patch")
+def test_update_failure(mock_patch):
     mock_response = MagicMock()
     mock_response.status_code = 404
     mock_response.text = "Not Found"
 
-    mock_client.patch.return_value = mock_response
+    mock_patch.return_value = mock_response
 
     with pytest.raises(Exception):
         update("cameras", {}, "id", 1)
 
 
-@patch("backend.db._client")
-def test_delete_failure(mock_client):
+@patch("backend.db.httpx.delete")
+def test_delete_failure(mock_delete):
     mock_response = MagicMock()
     mock_response.status_code = 500
     mock_response.text = "Delete Failed"
 
-    mock_client.delete.return_value = mock_response
+    mock_delete.return_value = mock_response
 
     with pytest.raises(Exception):
-        delete("cameras", "id", 1)
+        delete("cameras", "id", 1)

@@ -3,19 +3,16 @@ set -e
 cd "$(dirname "$0")"
 
 if [ ! -d "venv" ]; then
-    python3 -m venv venv
+    python -m venv venv
 fi
 
-# Windows Git-Bash uses Scripts/, POSIX uses bin/
-if [ -f "venv/Scripts/activate" ]; then
-    source venv/Scripts/activate
-else
-    source venv/bin/activate
-fi
+source venv/Scripts/activate
 
-pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+if [ -f "backend/requirements.txt" ]; then
+    pip install -r backend/requirements.txt
+elif [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt
+fi
 
 set -a; source backend/.env; set +a
 

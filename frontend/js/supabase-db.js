@@ -2,11 +2,9 @@
  * PPE Compliance Detection System - Connected API Layer (FastAPI Proxy)
  */
 
-const API_BASE_URL = (() => {
-    const h = window.location.hostname;
-    if (h === "localhost" || h === "127.0.0.1" || h === "") return "http://localhost:8000";
-    return window.location.origin;
-})();
+const API_BASE_URL = window.location.origin.includes(":8000")
+    ? window.location.origin
+    : "http://localhost:8000";
 
 // Centralized wrapper for calling backend FastAPI endpoints
 async function apiFetch(endpoint, options = {}) {
@@ -45,6 +43,10 @@ function updateConnectionBadge() {
 document.addEventListener("DOMContentLoaded", updateConnectionBadge);
 
 // ----------------- PUBLIC API METHODS -----------------
+
+function isUsingSupabase() {
+    return true; // We are connecting to backend API which uses Supabase
+}
 
 // Polling for new violations (no WebSocket)
 let violationPollingInterval = null;
@@ -164,6 +166,35 @@ async function fetchViolations({ type = "all", dateStart = "", dateEnd = "", sor
     }
 }
 
+async function addViolation(violationData) {
+    try {
+        const event_type = violationData.type === "Compliant" ? "compliant" : "violation";
+        const response = await apiFetch("/events", {
+            method: "POST",
+            body: JSON.stringify({
+                camera_id: null,
+                event_type: event_type,
+                snapshot: violationData.image_url ? violationData.image_url.replace(/^data:image\/[a-z]+;base64,/, "") : null,
+                detections: (violationData.details?.items_found || []).map(item => ({
+                    class_id: item.status === "violation" ? 10 : 11,
+                    class_name: item.name,
+                    confidence: item.confidence,
+                    bbox: [0, 0, 100, 100],
+                    is_violation: item.status === "violation"
+                }))
+            })
+        });
+        return {
+            id: response.id,
+            created_at: response.detected_at,
+            ...violationData
+        };
+    } catch (error) {
+        console.error("Add violation error:", error);
+        return { id: Math.floor(Math.random() * 1000), ...violationData };
+    }
+}
+
 async function updateViolationStatus(eventId, newStatus = "Acknowledged") {
     try {
         if (newStatus === "Acknowledged") {
@@ -199,7 +230,6 @@ async function fetchAlerts({ limit = 50, acknowledged = null } = {}) {
 async function acknowledgeAlert(alertId) {
     try {
         const response = await apiFetch(`/alerts/${alertId}/ack`, { method: "PATCH" });
-        notifyAck();
         return response;
     } catch (e) {
         console.error("Acknowledge alert error:", e);
@@ -207,23 +237,16 @@ async function acknowledgeAlert(alertId) {
     }
 }
 
-// Cross-tab ack sync: every ack path routes through acknowledgeAlert,
-// so one broadcast here keeps all open tabs (logs/history/dashboard) fresh.
-function notifyAck() {
-    try {
-        if ("BroadcastChannel" in window) new BroadcastChannel("ppe").postMessage({ t: "ack", at: Date.now() });
-    } catch (e) {}
-    try { localStorage.setItem("ppe_ack", String(Date.now())); } catch (e) {}
-}
+// ----------------- USER API METHODS -----------------
 
-function onAck(cb) {
+async function getUsers() {
     try {
-        if ("BroadcastChannel" in window) {
-            const bc = new BroadcastChannel("ppe");
-            bc.onmessage = (m) => { if (m.data && m.data.t === "ack") cb(); };
-        }
-    } catch (e) {}
-    window.addEventListener("storage", (e) => { if (e.key === "ppe_ack") cb(); });
+        const me = await apiFetch("/auth/me");
+        return [{ id: me.id, name: me.username, email: me.username, role: "Admin", status: "Active" }];
+    } catch (e) {
+        console.error("Get users error:", e);
+        return [];
+    }
 }
 
 // ----------------- ADVANCED REPORT STATISTICS METHODS -----------------
