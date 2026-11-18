@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPE Compliance - Camera Settings</title>
-    <script src="js/auth-guard.js?v=15"></script>
+    <script src="js/auth-guard.js?v=18"></script>
     <link rel="stylesheet" href="css/style.css?v=15">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
@@ -12,7 +12,7 @@
             const session = localStorage.getItem("ppe_session");
             if (session) {
                 const parsed = JSON.parse(session);
-                const payload = JSON.parse(atob(parsed.access_token.split('.')[1]));
+                const payload = decodeJwtPayload(parsed.access_token);
                 if (Date.now() >= payload.exp * 1000) {
                     localStorage.removeItem("ppe_session");
                 }
@@ -150,8 +150,8 @@
         </main>
     </div>
 
-    <script src="js/supabase-db.js?v=17"></script>
-    <script src="js/settings.js?v=17"></script>
+    <script src="js/supabase-db.js?v=18"></script>
+    <script src="js/settings.js?v=18"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();

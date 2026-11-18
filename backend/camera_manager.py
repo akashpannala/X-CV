@@ -53,8 +53,9 @@ class CameraStream:
 
 def start_camera(camera_id: str, url: str):
     with _lock:
-        if camera_id in _active_cameras:
-            _active_cameras[camera_id].stop()
+        previous = _active_cameras.pop(camera_id, None)
+        if previous:
+            previous.stop()
         stream = CameraStream(camera_id, url)
         stream.start()
         _active_cameras[camera_id] = stream

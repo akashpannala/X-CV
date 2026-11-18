@@ -1,4 +1,11 @@
 // PPE Compliance Detection System - Inline Head Authentication Guard
+function decodeJwtPayload(token) {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+    return JSON.parse(atob(padded));
+}
+
 (function() {
     const session = localStorage.getItem("ppe_session");
     const currentPath = window.location.pathname;
@@ -8,7 +15,7 @@
     function isSessionValid(sessionData) {
         if (!sessionData || !sessionData.access_token) return false;
         try {
-            const payload = JSON.parse(atob(sessionData.access_token.split('.')[1]));
+            const payload = decodeJwtPayload(sessionData.access_token);
             const exp = payload.exp * 1000;
             return Date.now() < exp;
         } catch (e) {

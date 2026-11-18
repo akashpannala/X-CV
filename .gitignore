@@ -3,13 +3,13 @@ dist/
 __pycache__/
 *.pyc
 .env
+.env.*
+!.env.example
 *.egg-info/
 .vite/
 .venv/
 venv/
 *.pt
 runs/
-__pycache__/
 .vscode/
 .pytest_cache/
-backend/.env

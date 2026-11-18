@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPE Compliance - Live Monitoring Dashboard</title>
-    <script src="js/auth-guard.js?v=12"></script>
+    <script src="js/auth-guard.js?v=18"></script>
     <link rel="stylesheet" href="css/style.css?v=16">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -13,7 +13,7 @@
             const session = localStorage.getItem("ppe_session");
             if (session) {
                 const parsed = JSON.parse(session);
-                const payload = JSON.parse(atob(parsed.access_token.split('.')[1]));
+                const payload = decodeJwtPayload(parsed.access_token);
                 if (Date.now() >= payload.exp * 1000) {
                     localStorage.removeItem("ppe_session");
                 }
@@ -194,8 +194,8 @@
 
     <div class="toast-container" id="toast-container"></div>
 
-    <script src="js/supabase-db.js?v=17"></script>
-    <script src="js/dashboard.js?v=16"></script>
+    <script src="js/supabase-db.js?v=18"></script>
+    <script src="js/dashboard.js?v=18"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();

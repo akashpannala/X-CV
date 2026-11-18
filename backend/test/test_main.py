@@ -28,35 +28,6 @@ class TestAuthMe:
         assert resp.status_code == 401
 
 
-class TestSites:
-    def test_list_sites(self, client, auth_headers, user_id, httpx_mock):
-        httpx_mock.add_response(
-            url=f"{BASE}/sites?user_id=eq.{user_id}&order=name.asc",
-            json=[{"id": "s1", "name": "Warehouse", "location": "Floor 1"}],
-        )
-        resp = client.get("/sites", headers=auth_headers)
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
-
-    def test_create_site(self, client, auth_headers, user_id, httpx_mock):
-        httpx_mock.add_response(
-            method="POST",
-            url=f"{BASE}/sites",
-            json=[{"id": "s1", "name": "Warehouse", "user_id": user_id}],
-        )
-        resp = client.post("/sites", headers=auth_headers, json={"name": "Warehouse"})
-        assert resp.status_code == 200
-
-    def test_delete_site(self, client, auth_headers, httpx_mock):
-        httpx_mock.add_response(
-            method="DELETE",
-            url=f"{BASE}/sites?id=eq.s1",
-            status_code=204,
-        )
-        resp = client.delete("/sites/s1", headers=auth_headers)
-        assert resp.status_code == 200
-
-
 class TestCameras:
     def test_list_cameras(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(
@@ -66,16 +37,47 @@ class TestCameras:
         resp = client.get("/cameras", headers=auth_headers)
         assert resp.status_code == 200
 
-    def test_create_camera(self, client, auth_headers, user_id, httpx_mock):
+    def test_create_camera(self, client, auth_headers, httpx_mock):
         httpx_mock.add_response(
             method="POST",
             url=f"{BASE}/cameras",
-            json=[{"id": "c1", "name": "Laptop"}],
+            json=[{"id": "c1", "name": "Laptop", "url": "http://cam/video"}],
         )
-        resp = client.post("/cameras", headers=auth_headers, json={"name": "Laptop"})
+        resp = client.post(
+            "/cameras",
+            headers=auth_headers,
+            json={"name": "Laptop", "url": "http://cam/video"},
+        )
         assert resp.status_code == 200
+        assert resp.json()["url"] == "http://cam/video"
 
-    def test_delete_camera(self, client, auth_headers, httpx_mock):
+    def test_stop_camera_owned(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}",
+            json=[{"id": "c1", "name": "Laptop", "url": "http://cam/video"}],
+        )
+        resp = client.post("/cameras/c1/stop", headers=auth_headers)
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+    def test_stop_camera_not_owned(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}",
+            json=[],
+        )
+        resp = client.post("/cameras/c1/stop", headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_delete_camera(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}",
+            json=[{"id": "c1", "name": "Laptop", "url": "http://cam/video"}],
+        )
+        httpx_mock.add_response(
+            method="PATCH",
+            url=f"{BASE}/detection_events?camera_id=eq.c1",
+            status_code=204,
+        )
         httpx_mock.add_response(
             method="DELETE",
             url=f"{BASE}/cameras?id=eq.c1",
@@ -83,14 +85,19 @@ class TestCameras:
         )
         resp = client.delete("/cameras/c1", headers=auth_headers)
         assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
 
 
 class TestEvents:
     def test_create_event_no_detections(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(
+            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}&limit=1",
+            json=[{"id": "c1", "name": "Gate Camera", "url": "http://cam/video"}],
+        )
+        httpx_mock.add_response(
             method="POST",
             url=f"{BASE}/detection_events",
-            json=[{"id": "ev1", "event_type": "violation"}],
+            json=[{"id": "ev1", "event_type": "violation", "camera_name": "Gate Camera"}],
         )
         httpx_mock.add_response(
             url=f"{BASE}/user_settings?user_id=eq.{user_id}&limit=1",
@@ -107,14 +114,109 @@ class TestEvents:
             json={"event_type": "violation", "camera_id": "c1", "detections": []},
         )
         assert resp.status_code == 200
+        assert resp.json()["camera_name"] == "Gate Camera"
+
+    def test_create_event_with_detections(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            method="POST",
+            url=f"{BASE}/detection_events",
+            json=[{"id": "ev1", "event_type": "violation"}],
+        )
+        httpx_mock.add_response(
+            method="POST",
+            url=f"{BASE}/detections",
+            json=[{"id": "d1"}],
+        )
+        httpx_mock.add_response(
+            url=f"{BASE}/user_settings?user_id=eq.{user_id}&limit=1",
+            json=[{"alert_on_violation": True, "alert_on_fall": True}],
+        )
+        httpx_mock.add_response(
+            method="POST",
+            url=f"{BASE}/alerts",
+            json=[{"id": "al1"}],
+        )
+        resp = client.post(
+            "/events",
+            headers=auth_headers,
+            json={
+                "event_type": "violation",
+                "detections": [{
+                    "class_id": 8,
+                    "class_name": "NO-Hardhat",
+                    "confidence": 0.9,
+                    "bbox": [1, 2, 3, 4],
+                    "is_violation": True,
+                }],
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_create_event_rejects_invalid_bbox(self, client, auth_headers):
+        resp = client.post(
+            "/events",
+            headers=auth_headers,
+            json={
+                "event_type": "violation",
+                "detections": [{
+                    "class_id": 8,
+                    "class_name": "NO-Hardhat",
+                    "confidence": 0.9,
+                    "bbox": [1, 2, 3],
+                    "is_violation": True,
+                }],
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_create_event_rejects_unknown_camera(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/cameras?id=eq.c1&user_id=eq.{user_id}&limit=1",
+            json=[],
+        )
+        resp = client.post(
+            "/events",
+            headers=auth_headers,
+            json={"event_type": "violation", "camera_id": "c1", "detections": []},
+        )
+        assert resp.status_code == 400
+
+    def test_create_event_rejects_invalid_type(self, client, auth_headers):
+        resp = client.post(
+            "/events",
+            headers=auth_headers,
+            json={"event_type": "bogus", "detections": []},
+        )
+        assert resp.status_code == 422
 
     def test_list_events(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(
             url=f"{BASE}/detection_events?user_id=eq.{user_id}&order=detected_at.desc&limit=100",
             json=[{"id": "ev1", "event_type": "violation"}],
         )
+        httpx_mock.add_response(
+            url=f"{BASE}/detections?event_id=in.%28ev1%29",
+            json=[{"id": "d1", "event_id": "ev1", "class_name": "NO-Hardhat", "class_id": 8, "confidence": 0.9, "is_violation": True}],
+        )
         resp = client.get("/events", headers=auth_headers)
         assert resp.status_code == 200
+        assert resp.json()[0]["label"] == "NO-Hardhat"
+
+    def test_list_events_combines_date_range(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=(
+                f"{BASE}/detection_events?user_id=eq.{user_id}"
+                "&order=detected_at.desc&limit=100"
+                "&and=%28detected_at.gte.2026-01-01%2Cdetected_at.lt.2026-01-03%29"
+            ),
+            json=[],
+        )
+        resp = client.get(
+            "/events?date_start=2026-01-01&date_end=2026-01-02",
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
 
     def test_get_event_with_detections(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(
@@ -141,7 +243,11 @@ class TestAlerts:
         resp = client.get("/alerts", headers=auth_headers)
         assert resp.status_code == 200
 
-    def test_ack_alert(self, client, auth_headers, httpx_mock):
+    def test_ack_alert(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/alerts?id=eq.al1&user_id=eq.{user_id}",
+            json=[{"id": "al1", "user_id": user_id, "acknowledged": False}],
+        )
         httpx_mock.add_response(
             method="PATCH",
             url=f"{BASE}/alerts?id=eq.al1",
@@ -149,6 +255,15 @@ class TestAlerts:
         )
         resp = client.patch("/alerts/al1/ack", headers=auth_headers)
         assert resp.status_code == 200
+        assert resp.json()["acknowledged"] is True
+
+    def test_ack_alert_not_owned(self, client, auth_headers, user_id, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{BASE}/alerts?id=eq.al1&user_id=eq.{user_id}",
+            json=[],
+        )
+        resp = client.patch("/alerts/al1/ack", headers=auth_headers)
+        assert resp.status_code == 404
 
 
 class TestSettings:
@@ -188,7 +303,7 @@ class TestSettings:
 class TestStats:
     def test_stats(self, client, auth_headers, user_id, httpx_mock):
         httpx_mock.add_response(
-            url=f"{BASE}/detection_events?user_id=eq.{user_id}&limit=1000",
+            url=f"{BASE}/detection_events?user_id=eq.{user_id}&order=detected_at.desc&limit=1000",
             json=[
                 {"event_type": "compliant", "detected_at": "2026-07-06T00:00:00Z"},
                 {"event_type": "violation", "detected_at": "2026-07-06T01:00:00Z"},

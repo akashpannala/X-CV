@@ -1,5 +1,11 @@
 let editingCameraId = null;
 
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+}
+
 async function loadCameras() {
     const tbody = document.getElementById("cameras-tbody");
     try {
@@ -12,18 +18,20 @@ async function loadCameras() {
         for (const cam of cams) {
             const active = cam.active;
             const tr = document.createElement("tr");
+            const name = escapeHtml(cam.name);
+            const url = escapeHtml(cam.url);
             tr.innerHTML = `
-                <td><strong>${cam.name}</strong></td>
-                <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cam.url}</td>
+                <td><strong>${name}</strong></td>
+                <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${url}</td>
                 <td><span class="status-badge ${active ? 'status-compliant' : 'status-violation'}">${active ? 'Active' : 'Inactive'}</span></td>
                 <td>
-                    <button class="btn btn-outline cam-start-btn" data-id="${cam.id}" ${active ? 'style="display:none;"' : ''} style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                    <button class="btn btn-outline cam-start-btn" data-id="${cam.id}" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;${active ? ' display: none;' : ''}">
                         <i data-lucide="play" style="width: 12px; height: 12px;"></i> Start
                     </button>
-                    <button class="btn btn-outline cam-stop-btn" data-id="${cam.id}" ${active ? '' : 'style="display:none;"'} style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                    <button class="btn btn-outline cam-stop-btn" data-id="${cam.id}" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;${active ? '' : ' display: none;'}">
                         <i data-lucide="square" style="width: 12px; height: 12px;"></i> Stop
                     </button>
-                    <button class="btn btn-outline cam-edit-btn" data-id="${cam.id}" data-name="${cam.name}" data-url="${cam.url}" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                    <button class="btn btn-outline cam-edit-btn" data-id="${cam.id}" data-name="${name}" data-url="${url}" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
                         <i data-lucide="edit" style="width: 12px; height: 12px;"></i> Edit
                     </button>
                     <button class="btn btn-outline cam-delete-btn" data-id="${cam.id}" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; color: var(--color-violation);">
@@ -69,7 +77,7 @@ async function loadCameras() {
             };
         });
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--color-violation); padding: 3rem;">Failed to load cameras: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--color-violation); padding: 3rem;">Failed to load cameras: ${escapeHtml(e.message)}</td></tr>`;
     }
 }
 

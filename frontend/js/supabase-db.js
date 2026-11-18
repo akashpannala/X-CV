@@ -2,9 +2,9 @@
  * PPE Compliance Detection System - Connected API Layer (FastAPI Proxy)
  */
 
-const API_BASE_URL = window.location.origin.includes(":8000")
-    ? window.location.origin
-    : "http://localhost:8000";
+const API_BASE_URL = window.location.protocol === "file:"
+    ? "http://localhost:8000"
+    : window.location.origin;
 
 // Centralized wrapper for calling backend FastAPI endpoints
 async function apiFetch(endpoint, options = {}) {
@@ -26,9 +26,14 @@ async function apiFetch(endpoint, options = {}) {
     });
 
     if (!response.ok) {
+        if (response.status === 401 && token) {
+            localStorage.removeItem("ppe_session");
+            window.location.href = "login.html";
+        }
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || `HTTP Error ${response.status}`);
     }
+    if (response.status === 204) return null;
     return response.json();
 }
 
@@ -114,7 +119,8 @@ async function fetchStats() {
 
 async function fetchViolations({ type = "all", dateStart = "", dateEnd = "", sortBy = "created_at", sortOrder = "desc", page = 1, limit = 10, includeSnapshot = false } = {}) {
     try {
-        let path = `/events?limit=200`;
+        const fetchLimit = Math.min(1000, Math.max(200, page * limit));
+        let path = `/events?limit=${fetchLimit}`;
         if (type !== "all") {
             if (type === "Compliant") path += "&event_type=compliant";
             else if (type === "Violations Only") path += "&event_type=violation";
@@ -124,7 +130,7 @@ async function fetchViolations({ type = "all", dateStart = "", dateEnd = "", sor
         if (dateEnd) path += `&date_end=${dateEnd}`;
         const events = await apiFetch(path);
 
-        const alerts = await fetchAlerts({ limit: 200 });
+        const alerts = await fetchAlerts({ limit: 1000 });
         const alertMap = {};
         alerts.forEach(a => { alertMap[a.event_id] = a; });
 
@@ -143,18 +149,27 @@ async function fetchViolations({ type = "all", dateStart = "", dateEnd = "", sor
                 id: e.id,
                 created_at: e.detected_at || e.created_at || new Date().toISOString(),
                 type: label,
-                confidence: e.confidence || 0.92,
+                confidence: typeof e.confidence === "number" ? e.confidence : 0,
                 status: status,
                 is_compliant: isCompliant,
-                snapshot: (includeSnapshot && isViolation) ? (e.snapshot || null) : null,
+                snapshot: (includeSnapshot && !isCompliant) ? (e.snapshot || null) : null,
                 camera_id: e.camera_id || null,
                 camera_name: e.camera_name || null,
             };
         });
 
-        if (sortBy === "created_at") {
-            mapped.sort((a, b) => sortOrder === "desc" ? new Date(b.created_at) - new Date(a.created_at) : new Date(a.created_at) - new Date(b.created_at));
-        }
+        mapped.sort((a, b) => {
+            let av = a[sortBy];
+            let bv = b[sortBy];
+            if (sortBy === "created_at" || sortBy === "detected_at") {
+                av = new Date(av).getTime();
+                bv = new Date(bv).getTime();
+            } else if (typeof av === "string" && typeof bv === "string") {
+                return sortOrder === "desc" ? bv.localeCompare(av) : av.localeCompare(bv);
+            }
+            const diff = (av ?? 0) - (bv ?? 0);
+            return sortOrder === "desc" ? -diff : diff;
+        });
 
         const startIndex = (page - 1) * limit;
         const paginatedData = mapped.slice(startIndex, startIndex + limit);
@@ -198,10 +213,9 @@ async function addViolation(violationData) {
 async function updateViolationStatus(eventId, newStatus = "Acknowledged") {
     try {
         if (newStatus === "Acknowledged") {
-            const alerts = await fetchAlerts({ limit: 50 });
-            const alert = alerts.find(a => a.event_id === eventId);
-            if (alert) {
-                await acknowledgeAlert(alert.id);
+            const alerts = await fetchAlerts({ limit: 1, eventId });
+            if (alerts.length > 0) {
+                await acknowledgeAlert(alerts[0].id);
             }
         }
         return { id: eventId, status: newStatus };
@@ -213,9 +227,10 @@ async function updateViolationStatus(eventId, newStatus = "Acknowledged") {
 
 // ----------------- ALERTS API METHODS -----------------
 
-async function fetchAlerts({ limit = 50, acknowledged = null } = {}) {
+async function fetchAlerts({ limit = 50, acknowledged = null, eventId = null } = {}) {
     try {
         let path = `/alerts?limit=${limit}`;
+        if (eventId) path += `&event_id=${encodeURIComponent(eventId)}`;
         const alerts = await apiFetch(path);
         if (acknowledged !== null) {
             return alerts.filter(a => a.acknowledged === acknowledged);
@@ -368,17 +383,17 @@ async function fetchWeeklyTrends() {
 
 // ----------------- AUTHENTICATION API METHODS -----------------
 
-async function signInUser(email, password) {
+async function signInUser(username, password) {
     const res = await apiFetch("/auth/login", {
         method: "POST",
         body: JSON.stringify({
-            username: email,
+            username: username,
             password: password
         })
     });
     const session = {
         name: res.username,
-        email: res.username,
+        username: res.username,
         access_token: res.access_token,
     };
     localStorage.setItem("ppe_session", JSON.stringify(session));
@@ -408,7 +423,7 @@ function setupSidebarProfile() {
     const nameEl = document.getElementById("user-display-name");
     const logoutBtn = document.getElementById("logout-btn");
 
-    if (nameEl) nameEl.textContent = session.name || session.email;
+    if (nameEl) nameEl.textContent = session.name || session.username || "User";
     if (avatarEl) {
         const initials = (session.name || "??")
             .split(" ")

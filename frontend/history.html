@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPE Compliance - Daily History</title>
-    <script src="js/auth-guard.js?v=12"></script>
+    <script src="js/auth-guard.js?v=18"></script>
     <link rel="stylesheet" href="css/style.css?v=12">
 
     <!-- Lucide Icons CDN -->
@@ -15,7 +15,7 @@
             const session = localStorage.getItem("ppe_session");
             if (session) {
                 const parsed = JSON.parse(session);
-                const payload = JSON.parse(atob(parsed.access_token.split('.')[1]));
+                const payload = decodeJwtPayload(parsed.access_token);
                 if (Date.now() >= payload.exp * 1000) {
                     localStorage.removeItem("ppe_session");
                 }
@@ -170,8 +170,8 @@
                     <table class="custom-table" id="history-table">
                         <thead>
                             <tr>
-                                <th class="sortable sort-desc" data-column="detected_at">Timestamp</th>
-                                <th class="sortable" data-column="event_type">Event Type</th>
+                                <th class="sortable sort-desc" data-column="created_at">Timestamp</th>
+                                <th class="sortable" data-column="type">Event Type</th>
                                 <th>Camera</th>
                                 <th class="sortable" data-column="confidence">Confidence</th>
                                 <th class="sortable" data-column="status">Status</th>
@@ -200,8 +200,8 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/supabase-db.js?v=17"></script>
-    <script src="js/history.js?v=16"></script>
+    <script src="js/supabase-db.js?v=18"></script>
+    <script src="js/history.js?v=18"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();

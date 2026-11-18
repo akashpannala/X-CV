@@ -9,6 +9,7 @@ let videoEl = null;
 let canvasEl = null;
 let ctx = null;
 let isStreaming = false;
+let detectionInFlight = false;
 let lastDetections = [];
 let eventCooldowns = {};
 let currentCameraId = "";
@@ -156,6 +157,12 @@ window.startCamera = async function() {
             await apiFetch(`/cameras/${currentCameraId}/start`, { method: "POST" });
         } catch (e) {
             console.error("Start camera stream failed:", e);
+            alert("Failed to start camera stream. Check that the camera is reachable and the URL is correct.");
+            isStreaming = false;
+            document.getElementById("btn-start-cam").style.display = "inline-flex";
+            document.getElementById("btn-stop-cam").style.display = "none";
+            if (hudLive) hudLive.textContent = "OFF";
+            return;
         }
         startIPCameraLoop();
     } else {
@@ -182,7 +189,8 @@ window.startCamera = async function() {
 function startDetectionLoop() {
     if (detectionInterval) clearInterval(detectionInterval);
     detectionInterval = setInterval(async () => {
-        if (!isStreaming || !videoEl || !videoEl.videoWidth) return;
+        if (!isStreaming || detectionInFlight || !videoEl || !videoEl.videoWidth) return;
+        detectionInFlight = true;
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = videoEl.videoWidth || 640;
         tempCanvas.height = videoEl.videoHeight || 480;
@@ -190,6 +198,7 @@ function startDetectionLoop() {
         tempCtx.drawImage(videoEl, 0, 0);
         tempCanvas.toBlob(async function(blob) {
             try {
+                if (!blob) return;
                 const formData = new FormData();
                 formData.append("file", blob, "frame.jpg");
                 const session = getCurrentSession();
@@ -214,7 +223,11 @@ function startDetectionLoop() {
                     eventCooldowns[data.event_type] = now;
                     await storeDetectionEvent(data);
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error("Detection frame failed:", e);
+            } finally {
+                detectionInFlight = false;
+            }
         }, "image/jpeg", 0.8);
     }, 1500);
 }
@@ -222,7 +235,8 @@ function startDetectionLoop() {
 function startIPCameraLoop() {
     if (detectionInterval) clearInterval(detectionInterval);
     detectionInterval = setInterval(async () => {
-        if (!isStreaming) return;
+        if (!isStreaming || detectionInFlight) return;
+        detectionInFlight = true;
         try {
             const session = getCurrentSession();
             const token = session?.access_token;
@@ -249,7 +263,11 @@ function startIPCameraLoop() {
                 data.camera_name = currentCameraName;
                 await storeDetectionEvent(data);
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error("IP camera detection failed:", e);
+        } finally {
+            detectionInFlight = false;
+        }
     }, 1500);
 }
 
@@ -282,6 +300,7 @@ async function storeDetectionEvent(detectResult) {
 
 window.stopCamera = function() {
     isStreaming = false;
+    detectionInFlight = false;
     if (detectionInterval) { clearInterval(detectionInterval); detectionInterval = null; }
     if (currentCameraId) {
         apiFetch(`/cameras/${currentCameraId}/stop`, { method: "POST" }).catch(() => {});

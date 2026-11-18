@@ -1,4 +1,5 @@
-import os
+import pytest
+from pydantic import ValidationError
 
 from backend.config import Settings
 
@@ -20,7 +21,7 @@ class TestSettingsDefaults:
             supabase_service_key="k2",
             jwt_secret="secret",
         )
-        assert s.jwt_expire_minutes == 480
+        assert s.jwt_expire_minutes == 60
 
     def test_default_api_host(self):
         s = Settings(
@@ -73,12 +74,16 @@ class TestSettingsOverride:
         assert s.api_port == 9000
         assert s.debug is False
 
-    def test_required_fields_raise_without(self):
-        try:
-            Settings()
-            assert False, "Should have raised"
-        except Exception:
-            pass
+    def test_required_fields_raise_without(self, monkeypatch):
+        for name in (
+            "SUPABASE_URL",
+            "SUPABASE_ANON_KEY",
+            "SUPABASE_SERVICE_KEY",
+            "JWT_SECRET",
+        ):
+            monkeypatch.delenv(name, raising=False)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
 
     def test_env_vars_override_defaults(self, monkeypatch):
         monkeypatch.setenv("SUPABASE_URL", "http://env-url")

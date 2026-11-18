@@ -1,6 +1,6 @@
 let historyCurrentPage = 1;
 const historyLimit = 20;
-let historySortBy = "detected_at";
+let historySortBy = "created_at";
 let historySortOrder = "desc";
 
 const historyDateInput = document.getElementById("history-date");

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPE Compliance - Login</title>
     <!-- Sync Auth Guard to prevent layout flash if already logged in -->
-    <script src="js/auth-guard.js?v=5"></script>
+    <script src="js/auth-guard.js?v=18"></script>
     <link rel="stylesheet" href="css/style.css?v=5">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -15,7 +15,7 @@
             const session = localStorage.getItem("ppe_session");
             if (session) {
                 const parsed = JSON.parse(session);
-                const payload = JSON.parse(atob(parsed.access_token.split('.')[1]));
+                const payload = decodeJwtPayload(parsed.access_token);
                 if (Date.now() >= payload.exp * 1000) {
                     localStorage.removeItem("ppe_session");
                 }
@@ -344,17 +344,17 @@
                 <!-- Login Form -->
                 <form id="login-form">
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label class="form-label" for="login-email" style="margin-bottom: 0.35rem; display: block; font-size: 0.85rem; font-weight: 500;">Email Address</label>
+                        <label class="form-label" for="login-username" style="margin-bottom: 0.35rem; display: block; font-size: 0.85rem; font-weight: 500;">Username</label>
                         <div class="input-wrapper">
-                            <input 
-                                type="email" 
-                                id="login-email" 
-                                class="premium-input" 
-                                placeholder="name@company.com" 
-                                required 
-                                autocomplete="email"
+                            <input
+                                type="text"
+                                id="login-username"
+                                class="premium-input"
+                                placeholder="username"
+                                required
+                                autocomplete="username"
                             >
-                            <i data-lucide="mail" class="input-icon"></i>
+                            <i data-lucide="user" class="input-icon"></i>
                         </div>
                     </div>
                     
@@ -388,7 +388,7 @@
     </div>
 
     <!-- Script integrations -->
-    <script src="js/supabase-db.js?v=17"></script>
+    <script src="js/supabase-db.js?v=18"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             // Render Lucide icons
@@ -401,7 +401,7 @@
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 
-                const email = document.getElementById("login-email").value.trim();
+                const username = document.getElementById("login-username").value.trim();
                 const password = document.getElementById("login-password").value;
                 const submitBtn = form.querySelector("button[type='submit']");
 
@@ -411,7 +411,7 @@
                 alertBox.classList.remove("visible");
 
                 try {
-                    await signInUser(email, password);
+                    await signInUser(username, password);
                     // On success, redirect to dashboard
                     window.location.href = "index.html";
                 } catch (error) {

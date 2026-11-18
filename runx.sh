@@ -3,10 +3,19 @@ set -e
 cd "$(dirname "$0")"
 
 if [ ! -d "venv" ]; then
-    python3 -m venv venv
+    if command -v python >/dev/null 2>&1; then
+        python -m venv venv
+    else
+        py -m venv venv
+    fi
 fi
 
-source venv/bin/activate
+source venv/Scripts/activate
+
+if [ ! -f "backend/.env" ]; then
+    echo "Missing backend/.env. Copy .env.example to backend/.env and fill in your credentials."
+    exit 1
+fi
 
 if [ -f "backend/requirements.txt" ]; then
     pip install -r backend/requirements.txt

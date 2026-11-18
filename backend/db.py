@@ -29,20 +29,26 @@ def select(table: str, params: dict | None = None):
     return _handle_response(response)
 
 
-def insert(table: str, data: dict):
+def insert(table: str, data: dict | list[dict], returning: bool = True):
+    headers = {**HEADERS}
+    if returning:
+        headers["Prefer"] = "return=representation"
     response = httpx.post(
         f"{BASE_URL}/{table}",
-        headers={**HEADERS, "Prefer": "return=representation"},
+        headers=headers,
         json=data,
         timeout=15,
     )
     return _handle_response(response)
 
 
-def update(table: str, data: dict, field: str, value):
+def update(table: str, data: dict, field: str, value, returning: bool = True):
+    headers = {**HEADERS}
+    if returning:
+        headers["Prefer"] = "return=representation"
     response = httpx.patch(
         f"{BASE_URL}/{table}",
-        headers={**HEADERS, "Prefer": "return=representation"},
+        headers=headers,
         params={field: f"eq.{value}"},
         json=data,
         timeout=15,

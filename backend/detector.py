@@ -1,10 +1,17 @@
 import os
+import threading
 
 import cv2
 import numpy as np
 from ultralytics import YOLO
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "best.pt")
+MODEL_PATH = os.getenv(
+    "MODEL_PATH",
+    os.path.join(os.path.dirname(__file__), "..", "models", "best.pt"),
+)
+FALLBACK_MODEL_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "models", "last.pt"
+)
 
 CLASS_NAMES = {
     0: "Fall-Detected",
@@ -26,6 +33,7 @@ CLASS_NAMES = {
 VIOLATION_IDS = {6, 7, 8, 9, 10}
 
 _model = None
+_inference_lock = threading.Lock()
 
 
 def _get_model():
@@ -33,16 +41,21 @@ def _get_model():
     if _model is None:
         if os.path.exists(MODEL_PATH):
             _model = YOLO(MODEL_PATH)
+        elif os.path.exists(FALLBACK_MODEL_PATH):
+            _model = YOLO(FALLBACK_MODEL_PATH)
         else:
-            fallback_path = os.path.join(os.path.dirname(__file__), "..", "models", "last.pt")
-            _model = YOLO(fallback_path)
+            raise FileNotFoundError(
+                f"YOLO model not found. Place weights at {MODEL_PATH} "
+                f"or {FALLBACK_MODEL_PATH}."
+            )
     return _model
 
 
 def detect(frame: np.ndarray, violation_ids: set | None = None) -> dict:
-    model = _get_model()
     violation_ids = violation_ids or VIOLATION_IDS
-    results = model(frame, verbose=False)[0]
+    with _inference_lock:
+        model = _get_model()
+        results = model(frame, verbose=False)[0]
     detections = []
     has_fall = False
     has_violation = False
